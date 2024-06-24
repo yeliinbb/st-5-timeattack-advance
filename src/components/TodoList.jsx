@@ -40,23 +40,30 @@ export default function TodoList() {
   // };
 
   const { mutate: handleLike } = useMutation({
-    mutationFn: ({ id, currentLiked }) => {
-      todoApi.patch(`/todos/${id}`, {
-        liked: !currentLiked,
-      });
-    },
+    mutationFn: async ({ id, currentLiked }) =>
+      // 상태 업데이트
+      await todoApi.patch(`/todos/${id}`, { liked: !currentLiked }),
+    // onMutate는 서버 요청이 시작되기 전에 호출됨.
     onMutate: async ({ id, currentLiked }) => {
-      await queryClient.cancelQueries({ queryKey: ["todos", id] });
-      const previousTodos = queryClient.getQueriesData(["todos", id]);
+      await queryClient.cancelQueries({ queryKey: ["todos"] });
+      const previousTodos = queryClient.getQueryData(["todos"]);
       console.log("previousTodos => ", previousTodos);
-      queryClient.setQueryData(["todos", id], (prev) =>
+      // 로컬 데이터 즉시 업데이트 (낙관적 업데이트)
+      queryClient.setQueryData(["todos"], (prev) =>
         prev.map((todo) =>
           todo.id === id ? { ...todo, liked: !currentLiked } : todo
         )
       );
+      // 이전 데이터를 반환하여 나중에 사용할 수 있도록 context로 전달
       return { previousTodos };
     },
+    onError: (error, _, context) => {
+      // 반환된 값 context로 오류 발생 시 이전 데이터로 롤백
+      queryClient.setQueryData(["todos"], context.previousTodos);
+      console.log(error);
+    },
     onSettled: () => {
+      // 변이가 완료되면 "todos" 쿼리 무효화
       queryClient.invalidateQueries(["todos"]);
     },
   });
