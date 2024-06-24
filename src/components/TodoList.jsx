@@ -107,12 +107,16 @@ export default function TodoList() {
             </button>
             {todo.liked ? (
               <FaHeart
-                onClick={() => handleLike(todo.id, todo.liked)}
+                onClick={() =>
+                  handleLike({ id: todo.id, currentLiked: todo.liked })
+                }
                 style={{ cursor: "pointer" }}
               />
             ) : (
               <FaRegHeart
-                onClick={() => handleLike(todo.id, todo.liked)}
+                onClick={() =>
+                  handleLike({ id: todo.id, currentLiked: todo.liked })
+                }
                 style={{ cursor: "pointer" }}
               />
             )}
