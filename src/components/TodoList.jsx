@@ -39,34 +39,41 @@ export default function TodoList() {
   //   }
   // };
 
-  const { mutate: handleLike } = useMutation({
-    mutationFn: async ({ id, currentLiked }) =>
+  const likeMutation = useMutation({
+    mutationFn: ({ id, currentLiked }) =>
       // 상태 업데이트
-      await todoApi.patch(`/todos/${id}`, { liked: !currentLiked }),
+      // 함수 리턴 값이 promise이기만 하면 상관없기 때문에 async, await를 사용하지 않아도 괜찮다.
+      todoApi.patch(`/todos/${id}`, { liked: !currentLiked }),
     // onMutate는 서버 요청이 시작되기 전에 호출됨.
-    onMutate: async ({ id, currentLiked }) => {
+    onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey: ["todos"] });
       const previousTodos = queryClient.getQueryData(["todos"]);
       console.log("previousTodos => ", previousTodos);
       // 로컬 데이터 즉시 업데이트 (낙관적 업데이트)
       queryClient.setQueryData(["todos"], (prev) =>
         prev.map((todo) =>
-          todo.id === id ? { ...todo, liked: !currentLiked } : todo
+          todo.id === id ? { ...todo, liked: !todo.liked } : todo
         )
       );
-      // 이전 데이터를 반환하여 나중에 사용할 수 있도록 context로 전달
+      // 서버 요청에 실패했을 때 복구를 위해 previousTodos 리턴
+      // 이전 데이터를 반환하여 나중에 사용할 수 있도록 onError함수의 매개변수 context로 전달
       return { previousTodos };
     },
-    onError: (error, _, context) => {
+    onError: (error, newTodo, context) => {
       // 반환된 값 context로 오류 발생 시 이전 데이터로 롤백
       queryClient.setQueryData(["todos"], context.previousTodos);
-      console.log(error);
+      console.error(error);
     },
     onSettled: () => {
       // 변이가 완료되면 "todos" 쿼리 무효화
+      // 데이터와 ui 동일화
       queryClient.invalidateQueries(["todos"]);
     },
   });
+
+  const handleLike = async ({ id, currentLiked }) => {
+    likeMutation.mutate({ id, currentLiked });
+  };
 
   // useMutation({
   //   mutationFn: handleLike,
